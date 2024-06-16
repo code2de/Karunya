@@ -1,0 +1,191 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define SIZE 10  // Initial size of the hash table
+#define LOAD_FACTOR_THRESHOLD 0.7  // Load factor threshold for rehashing
+
+// Structure for a node in the chained list
+struct Node {
+    int key;
+    int value;
+    struct Node *next;
+};
+
+// Structure for a hash table
+struct HashTable {
+    struct Node **table;  // Array of pointers to nodes (buckets)
+    int size;             // Current size of the hash table
+    int count;            // Number of elements currently stored
+};
+
+// Function to create a new node
+struct Node* createNode(int key, int value) {
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    if (newNode == NULL) {
+        perror("Memory allocation error");
+        exit(EXIT_FAILURE);
+    }
+    newNode->key = key;
+    newNode->value = value;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Function to create a new hash table
+struct HashTable* createHashTable(int size) {
+    struct HashTable* ht = (struct HashTable*)malloc(sizeof(struct HashTable));
+    if (ht == NULL) {
+        perror("Memory allocation error");
+        exit(EXIT_FAILURE);
+    }
+    ht->table = (struct Node**)malloc(size * sizeof(struct Node*));
+    if (ht->table == NULL) {
+        perror("Memory allocation error");
+        exit(EXIT_FAILURE);
+    }
+    ht->size = size;
+    ht->count = 0;
+    // Initialize all elements of the array to NULL (no nodes)
+    for (int i = 0; i < size; ++i) {
+        ht->table[i] = NULL;
+    }
+    return ht;
+}
+
+// Hash function to determine the index
+int hashFunction(int key, int size) {
+    return key % size;
+}
+
+// Function to insert a key-value pair into the hash table using chaining
+void insertChaining(struct HashTable* ht, int key, int value) {
+    int index = hashFunction(key, ht->size);
+    struct Node* newNode = createNode(key, value);
+    // Insert at the beginning of the linked list (chained list)
+    newNode->next = ht->table[index];
+    ht->table[index] = newNode;
+    ht->count++;
+}
+
+// Function to search for a key in the hash table using chaining
+int searchChaining(struct HashTable* ht, int key) {
+    int index = hashFunction(key, ht->size);
+    struct Node* currentNode = ht->table[index];
+    while (currentNode != NULL) {
+        if (currentNode->key == key) {
+            return currentNode->value;
+        }
+        currentNode = currentNode->next;
+    }
+    return -1;  // Key not found
+}
+
+// Function to insert a key-value pair into the hash table using open addressing (linear probing)
+void insertOpenAddressing(struct HashTable* ht, int key, int value) {
+    if ((float)ht->count / ht->size >= LOAD_FACTOR_THRESHOLD) {
+        // Rehash the table if load factor exceeds the threshold
+        rehash(ht);
+    }
+    int index = hashFunction(key, ht->size);
+    while (ht->table[index] != NULL) {
+        index = (index + 1) % ht->size;  // Linear probing
+    }
+    ht->table[index] = createNode(key, value);
+    ht->count++;
+}
+
+// Function to search for a key in the hash table using open addressing (linear probing)
+int searchOpenAddressing(struct HashTable* ht, int key) {
+    int index = hashFunction(key, ht->size);
+    while (ht->table[index] != NULL) {
+        if (ht->table[index]->key == key) {
+            return ht->table[index]->value;
+        }
+        index = (index + 1) % ht->size;  // Linear probing
+    }
+    return -1;  // Key not found
+}
+
+// Function to rehash the hash table when load factor exceeds the threshold
+void rehash(struct HashTable* ht) {
+    int newSize = ht->size * 2;  // Double the size for simplicity
+    struct Node** newTable = (struct Node**)malloc(newSize * sizeof(struct Node*));
+    if (newTable == NULL) {
+        perror("Memory allocation error");
+        exit(EXIT_FAILURE);
+    }
+    // Initialize new table with NULL
+    for (int i = 0; i < newSize; ++i) {
+        newTable[i] = NULL;
+    }
+    // Rehash all existing elements into the new table
+    for (int i = 0; i < ht->size; ++i) {
+        struct Node* currentNode = ht->table[i];
+        while (currentNode != NULL) {
+            int newIndex = hashFunction(currentNode->key, newSize);
+            struct Node* newNode = createNode(currentNode->key, currentNode->value);
+            newNode->next = newTable[newIndex];
+            newTable[newIndex] = newNode;
+            currentNode = currentNode->next;
+        }
+    }
+    // Update hash table fields
+    free(ht->table);
+    ht->table = newTable;
+    ht->size = newSize;
+}
+
+// Function to print the hash table
+void displayHashTable(struct HashTable* ht) {
+    printf("Hash Table:\n");
+    for (int i = 0; i < ht->size; ++i) {
+        printf("[%d]: ", i);
+        struct Node* currentNode = ht->table[i];
+        while (currentNode != NULL) {
+            printf("(%d, %d) -> ", currentNode->key, currentNode->value);
+            currentNode = currentNode->next;
+        }
+        printf("NULL\n");
+    }
+}
+
+int main() {
+    struct HashTable* ht = createHashTable(SIZE);
+
+    // Inserting elements using chaining
+    insertChaining(ht, 1, 10);
+    insertChaining(ht, 11, 20);
+    insertChaining(ht, 21, 30);
+    insertChaining(ht, 2, 40);
+    insertChaining(ht, 3, 50);
+
+    // Display the hash table after chaining inserts
+    displayHashTable(ht);
+
+    // Searching elements using chaining
+    printf("\nSearching using Chaining:\n");
+    printf("Key 11: Value = %d\n", searchChaining(ht, 11));
+    printf("Key 3: Value = %d\n", searchChaining(ht, 3));
+    printf("Key 5: Value = %d\n", searchChaining(ht, 5));
+
+    // Inserting elements using open addressing (linear probing)
+    insertOpenAddressing(ht, 4, 60);
+    insertOpenAddressing(ht, 14, 70);
+    insertOpenAddressing(ht, 24, 80);
+    insertOpenAddressing(ht, 5, 90);
+
+    // Display the hash table after open addressing inserts
+    printf("\nHash Table after Open Addressing (Linear Probing) inserts:\n");
+    displayHashTable(ht);
+
+    // Searching elements using open addressing (linear probing)
+    printf("\nSearching using Open Addressing (Linear Probing):\n");
+    printf("Key 14: Value = %d\n", searchOpenAddressing(ht, 14));
+    printf("Key 5: Value = %d\n", searchOpenAddressing(ht, 5));
+    printf("Key 8: Value = %d\n", searchOpenAddressing(ht, 8));
+
+    // Free the hash table
+    // TODO: Implement freeing of allocated memory
+
+    return 0;
+}
